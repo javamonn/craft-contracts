@@ -2,14 +2,14 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import "../src/CraftResource.sol";
+import "../src/CraftGame.sol";
 
 contract ResourceMock {
     function id() external pure returns (uint16) {
         return 1;
     }
-    
-    function tokenURI(uint256 /*tokenId*/) external pure returns (string memory) {
+
+    function tokenURI(uint256 /*tokenId*/ ) external pure returns (string memory) {
         return "data://";
     }
 }
