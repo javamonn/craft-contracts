@@ -3,52 +3,12 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
-import "@openzeppelin/contracts/utils/Base64.sol";
 
+import "./TestUtils.sol";
 import "../src/CraftSettlement.sol";
-
-contract ERC721TokenReceiverMock is ERC721TokenReceiver {
-    uint256 public lastTokenId;
-
-    function onERC721Received(address, address, uint256 tokenId, bytes calldata)
-        external
-        virtual
-        override
-        returns (bytes4)
-    {
-        lastTokenId = tokenId;
-        return this.onERC721Received.selector;
-    }
-}
-
-contract CraftSettlementRendererMock {
-    using Strings for uint256;
-
-    function tokenURI(uint256 tokenId) public view returns (string memory) {
-        bytes memory dataURI = abi.encodePacked("{", '"tokenId": "', tokenId.toString(), '"', "}");
-
-        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(dataURI)));
-    }
-}
 
 contract CraftSettlementTest is Test {
     event Transfer(address indexed from, address indexed to, uint256 indexed id);
-
-    /**
-     * UTILS *
-     */
-
-    function makeSignature(uint248 pkey, bytes32 digest) public returns (bytes memory) {
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pkey, ECDSA.toEthSignedMessageHash(digest));
-
-        return abi.encodePacked(r, s, v);
-    }
-
-    /**
-     * TESTS *
-     */
 
     function test_SetMintArbiter(address mintArbiter, address newMintArbiter) public {
         CraftSettlementRendererMock rendererMock = new CraftSettlementRendererMock();
@@ -64,8 +24,11 @@ contract CraftSettlementTest is Test {
     function testFail_SetMintArbiterWhenNotOwner(address mintArbiter, address newMintArbiter, address notOwner)
         public
     {
-        vm.assume(notOwner != 0xb4c79daB8f259C7Aee6E5b2Aa729821864227e84);
+        vm.assume(notOwner != address(0));
+        vm.assume(mintArbiter != address(0));
+
         CraftSettlementRendererMock rendererMock = new CraftSettlementRendererMock();
+
         CraftSettlement settlement = new CraftSettlement(
             mintArbiter,
             address(rendererMock)
@@ -93,7 +56,9 @@ contract CraftSettlementTest is Test {
     )
         public
     {
-        vm.assume(notOwner != 0xb4c79daB8f259C7Aee6E5b2Aa729821864227e84);
+        vm.assume(notOwner != address(0));
+        vm.assume(mintArbiter != address(0));
+        vm.assume(newRenderer != address(0));
 
         CraftSettlement settlement = new CraftSettlement(
             mintArbiter,
@@ -111,7 +76,7 @@ contract CraftSettlementTest is Test {
         CraftSettlementRendererMock rendererMock = new CraftSettlementRendererMock();
         CraftSettlement settlement = new CraftSettlement(vm.addr(mintArbiterPkey), address(rendererMock));
 
-        bytes memory sig = makeSignature(mintArbiterPkey, settlement.settleHash(address(receiverMock)));
+        bytes memory sig = Utils.makeSignature(vm, mintArbiterPkey, settlement.settleHash(address(receiverMock)));
         vm.expectEmit(true, true, false, false);
         emit Transfer(address(0), address(receiverMock), 0);
         vm.prank(address(receiverMock));
@@ -131,7 +96,7 @@ contract CraftSettlementTest is Test {
 
         CraftSettlementRendererMock rendererMock = new CraftSettlementRendererMock();
         CraftSettlement settlement = new CraftSettlement(vm.addr(mintArbiterPkey), address(rendererMock));
-        bytes memory sig = makeSignature(spoofedMintArbiterPkey, settlement.settleHash(sender));
+        bytes memory sig = Utils.makeSignature(vm, spoofedMintArbiterPkey, settlement.settleHash(sender));
 
         vm.expectRevert(CraftSettlement.InvalidSignature.selector);
         vm.prank(sender);
@@ -148,7 +113,7 @@ contract CraftSettlementTest is Test {
 
         CraftSettlementRendererMock rendererMock = new CraftSettlementRendererMock();
         CraftSettlement settlement = new CraftSettlement(vm.addr(mintArbiterPkey), address(rendererMock));
-        bytes memory sig = makeSignature(mintArbiterPkey, settlement.settleHash(spoofedSender));
+        bytes memory sig = Utils.makeSignature(vm, mintArbiterPkey, settlement.settleHash(spoofedSender));
 
         vm.expectRevert(CraftSettlement.InvalidSignature.selector);
         vm.prank(sender);
@@ -162,7 +127,7 @@ contract CraftSettlementTest is Test {
         ERC721TokenReceiverMock receiverMock = new ERC721TokenReceiverMock();
         CraftSettlement settlement = new CraftSettlement(vm.addr(mintArbiterPkey), address(rendererMock));
 
-        bytes memory sig = makeSignature(mintArbiterPkey, settlement.settleHash(address(receiverMock)));
+        bytes memory sig = Utils.makeSignature(vm, mintArbiterPkey, settlement.settleHash(address(receiverMock)));
         vm.expectEmit(true, true, false, false);
         emit Transfer(address(0), address(receiverMock), 0);
         vm.startPrank(address(receiverMock));
@@ -180,7 +145,7 @@ contract CraftSettlementTest is Test {
         CraftSettlementRendererMock rendererMock = new CraftSettlementRendererMock();
         CraftSettlement settlement = new CraftSettlement(vm.addr(mintArbiterPkey), address(rendererMock));
 
-        bytes memory sig = makeSignature(mintArbiterPkey, settlement.settleHash(address(receiverMock)));
+        bytes memory sig = Utils.makeSignature(vm, mintArbiterPkey, settlement.settleHash(address(receiverMock)));
         vm.prank(address(receiverMock));
         settlement.settle(sig);
 
@@ -196,7 +161,7 @@ contract CraftSettlementTest is Test {
         CraftSettlementRendererMock rendererMock = new CraftSettlementRendererMock();
         ERC721TokenReceiverMock receiverMock = new ERC721TokenReceiverMock();
         CraftSettlement settlement = new CraftSettlement(vm.addr(mintArbiterPkey), address(rendererMock));
-        bytes memory sig = makeSignature(mintArbiterPkey, settlement.settleHash(address(receiverMock)));
+        bytes memory sig = Utils.makeSignature(vm, mintArbiterPkey, settlement.settleHash(address(receiverMock)));
         vm.prank(address(receiverMock));
         settlement.settle(sig);
 
@@ -215,7 +180,10 @@ contract CraftSettlementTest is Test {
 
         CraftSettlementRendererMock rendererMock = new CraftSettlementRendererMock();
         CraftSettlement settlement = new CraftSettlement(vm.addr(mintArbiterPkey), address(rendererMock));
-        bytes memory sig = makeSignature(mintArbiterPkey, settlement.settleHash(sender));
+        vm.assume(sender != address(rendererMock));
+        vm.assume(sender != address(settlement));
+
+        bytes memory sig = Utils.makeSignature(vm, mintArbiterPkey, settlement.settleHash(sender));
         vm.prank(sender);
         settlement.settle(sig);
 
@@ -230,7 +198,7 @@ contract CraftSettlementTest is Test {
         CraftSettlementRendererMock rendererMock = new CraftSettlementRendererMock();
         ERC721TokenReceiverMock receiverMock = new ERC721TokenReceiverMock();
         CraftSettlement settlement = new CraftSettlement(vm.addr(mintArbiterPkey), address(rendererMock));
-        bytes memory sig = makeSignature(mintArbiterPkey, settlement.settleHash(address(receiverMock)));
+        bytes memory sig = Utils.makeSignature(vm, mintArbiterPkey, settlement.settleHash(address(receiverMock)));
         vm.prank(address(receiverMock));
         settlement.settle(sig);
 
