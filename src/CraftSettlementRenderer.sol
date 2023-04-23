@@ -22,73 +22,74 @@ contract CraftSettlementRenderer is Owned {
         UNKNOWN
     }
 
-
-    mapping(Terrain => string[]) RENDERED_TERRAIN;
     uint8 constant GRID_SIZE = 24;
-    string constant SVG_STYLES = string(abi.encodePacked(
-        ".a{width:576px;height:576px;background-color:black;}",
-        ".b{box-sizing:border-box;width:576px;height:576px;padding:24px;display:grid;grid-template-columns:repeat(24, 1fr);grid-template-rows:repeat(24, 1fr);grid-gap: 0px;justify-content:space-between;font-family:monospace;}",
-        "body,svg{overflow-x:hidden;overflow-y:hidden;margin:0;padding:0;}",
-        ".b>div{aspect-ratio:1/1;display:flex;justify-content:center;align-items:center;line-height:100%;}",
-        ".g{color:#556832;}",
-        ".p{color:#808000;}",
-        ".h{color:#755A57;}",
-        ".m{color:#C0C0C0;}",
-        ".o{color:#207DF1;}",
-        ".w{color:#556832;}",
-        ".r{color:#9ACD32;}",
-        ".s{color:#2E8B57;}"
-    ));
-    string constant SVG_HEADER = string(abi.encodePacked(
-        "<svg version='2.0' encoding='utf-8' viewBox='0 0 576 576' preserveAspecRatio='xMidyMid' xmlns:xlink='http://www.w3.org/1999/xlink' xmlns='http://www.w3.org/2000/svg'>",
-        "<style>",
-        SVG_STYLES,
-        "</style>",
-        "<foreignObject x='0' y='0' width='576' height='576'>",
-        "<div class='a' xmlns='http://www.w3.org/1999/xhtml'>",
-        "<div class='b'>"
-    ));
+    string constant SVG_STYLES_GRID = string(
+        abi.encodePacked(
+            ".a{width:576px;height:576px;background-color:black;}",
+            ".b{box-sizing:border-box;width:576px;height:576px;padding:24px;display:grid;grid-template-columns:repeat(24, 1fr);grid-template-rows:repeat(24, 1fr);grid-gap: 0px;justify-content:space-between;font-family:monospace;}",
+            "body,svg{overflow-x:hidden;overflow-y:hidden;margin:0;padding:0;}",
+            ".t4{display:inline-grid;grid-template-rows:repeat(2,1fr);grid-template-columns:repeat(2,1fr);font-size:0.6rem;}",
+            ".t1{font-size:1.1rem;line-height:100%;}",
+            "span{aspect-ratio:1/1;display:flex;justify-content:center;align-items:center;}"
+        )
+    );
+    string constant SVG_STYLES_COLOR = string(
+        abi.encodePacked(
+            ".fb{font-weight:bold;}",
+            ".g{color:#556832;}",
+            ".p{color:#808000;}",
+            ".h{color:#755A57;}",
+            ".m{color:#C0C0C0;}",
+            ".o{color:#207DF1;}",
+            ".w{color:#556832;}",
+            ".r{color:#9ACD32;}",
+            ".s{color:#2E8B57;}"
+        )
+    );
+
+    string constant SVG_HEADER = string(
+        abi.encodePacked(
+            "<svg version='2.0' encoding='utf-8' viewBox='0 0 576 576' preserveAspecRatio='xMidyMid' xmlns:xlink='http://www.w3.org/1999/xlink' xmlns='http://www.w3.org/2000/svg'>",
+            "<style>",
+            SVG_STYLES_GRID,
+            SVG_STYLES_COLOR,
+            "</style>",
+            "<foreignObject x='0' y='0' width='576' height='576'>",
+            "<div class='a' xmlns='http://www.w3.org/1999/xhtml'>",
+            "<div class='b'>"
+        )
+    );
     string constant SVG_FOOTER = string(abi.encodePacked("</div>", "</div>", "</foreignObject>", "</svg>"));
 
+    mapping(Terrain => string[]) TERRAIN_CHARS;
+    mapping(Terrain => string) TERRAIN_CLASS;
+
     constructor() Owned(msg.sender) {
-        RENDERED_TERRAIN[Terrain.GRASSLAND] = [
-            renderTerrain(unicode'"⌠"⌠', "g"),
-            renderTerrain(unicode'⌠', "g"),
-            renderTerrain(unicode'ⁿ', "g")
-        ];
-        RENDERED_TERRAIN[Terrain.PLAINS] = [
-            renderTerrain('=', 'p'),
-            renderTerrain('_ ', 'p')
-        ];
-        RENDERED_TERRAIN[Terrain.HILLS] = [
-            renderTerrain(unicode'◠', 'h'),
-            renderTerrain(unicode'∩', 'h')
-        ];
-        RENDERED_TERRAIN[Terrain.MOUNTAINS] = [
-            renderTerrain(unicode'⛰', 'm'),
-            renderTerrain(unicode'🏔','m')
-        ];
-        RENDERED_TERRAIN[Terrain.OCEAN] = [
-            renderTerrain(unicode'≈', 'o'),
-            renderTerrain(unicode'≋', 'o')
-        ];
-        RENDERED_TERRAIN[Terrain.WOODS] = [
-            renderTerrain(unicode'🌲', 'w'),
-            renderTerrain(unicode'🌳', 'w')
-        ];
-        RENDERED_TERRAIN[Terrain.RAINFOREST] = [
-            renderTerrain(unicode'🌴', 'r'),
-            renderTerrain(unicode'🌳', 'r')
-        ];
-        RENDERED_TERRAIN[Terrain.SWAMP] = [
-            renderTerrain(unicode'░', "s"),
-            renderTerrain(unicode'▒', "s"),
-            renderTerrain(unicode'▓', "s")
-        ];
+        // Characters for rendered terrains
+        TERRAIN_CHARS[Terrain.GRASSLAND] = [renderSpan(unicode'ⁿ'), renderSpan(".")];
+        TERRAIN_CHARS[Terrain.PLAINS] = [renderSpan(unicode"ⁿ"), renderSpan('"')];
+        TERRAIN_CHARS[Terrain.HILLS] = [renderSpan("n"), renderSpan(unicode"∩")];
+        TERRAIN_CHARS[Terrain.MOUNTAINS] = [renderSpan(unicode"▲"), renderSpan(unicode"⌂")];
+        TERRAIN_CHARS[Terrain.OCEAN] = [renderSpan(unicode"≈"), renderSpan(unicode"≋")];
+        TERRAIN_CHARS[Terrain.WOODS] = [renderSpan(unicode"♠"), renderSpan(unicode"♣")];
+        TERRAIN_CHARS[Terrain.RAINFOREST] = [renderSpan(unicode"♠"), renderSpan(unicode"Γ")];
+        TERRAIN_CHARS[Terrain.SWAMP] = [renderSpan(unicode'"'), renderSpan(unicode"⌠")];
+
+        TERRAIN_CLASS[Terrain.GRASSLAND] = "g fb";
+        TERRAIN_CLASS[Terrain.PLAINS] = "p fb";
+        TERRAIN_CLASS[Terrain.HILLS] = "h fb";
+        TERRAIN_CLASS[Terrain.MOUNTAINS] = "m";
+        TERRAIN_CLASS[Terrain.OCEAN] = "o fb";
+        TERRAIN_CLASS[Terrain.WOODS] = "w fb";
+        TERRAIN_CLASS[Terrain.RAINFOREST] = "r fb";
+        TERRAIN_CLASS[Terrain.SWAMP] = "s";
     }
 
-    function getTerrains(address owner) public pure returns (Terrain[576] memory) {
-        // Build
+    function renderSpan(string memory char) internal pure returns (string memory) {
+        return string.concat("<span>", char, "</span>");
+    }
+
+    function getSeed(address owner) internal pure returns (bytes memory) {
         bytes32[9] memory hashes;
         for (uint8 i; i < 9;) {
             if (i == 0) {
@@ -101,17 +102,21 @@ contract CraftSettlementRenderer is Owned {
                 ++i;
             }
         }
-        // 9xbytes32 = 288 bytes total
+        // 9 x bytes32 = 288 bytes total
         bytes memory hash = bytes.concat(
             hashes[0], hashes[1], hashes[2], hashes[3], hashes[4], hashes[5], hashes[6], hashes[7], hashes[8]
         );
 
+        return hash;
+    }
+
+    function getTerrains(bytes memory seed) public pure returns (Terrain[576] memory) {
         // 4 bits per terrain, 288 byte input
         Terrain[576] memory terrains;
-        uint256 hashLength = hash.length;
+        uint256 seedLength = seed.length;
         uint16 unknownTerrainCount;
-        for (uint16 i = 0; i < hashLength;) {
-            bytes1 b = hash[i];
+        for (uint16 i = 0; i < seedLength;) {
+            bytes1 b = seed[i];
 
             // We only need 4 bits per terrain
             uint8 upper = uint8(b >> 4);
@@ -158,9 +163,14 @@ contract CraftSettlementRenderer is Owned {
         }
 
         // Shuffle unknown terrain idxs so that we don't resolve in order
-        uint256 offsetHash = uint256(keccak256(abi.encodePacked(owner)));
+        bytes32 temp;
+        assembly {
+            temp := mload(add(seed, 32))
+        }
+
+        uint256 offsetSeed = uint256(temp);
         for (uint16 i = 0; i < unknownTerrainCount;) {
-            uint16 n = uint16(i + offsetHash % (unknownTerrainCount - i));
+            uint16 n = uint16(i + offsetSeed % (unknownTerrainCount - i));
             uint16 temp = unknownTerrainIdxs[n];
             unknownTerrainIdxs[n] = unknownTerrainIdxs[i];
             unknownTerrainIdxs[i] = temp;
@@ -238,48 +248,55 @@ contract CraftSettlementRenderer is Owned {
         return terrains;
     }
 
-    function renderTerrain(string memory char, string memory className) private pure returns (string memory) {
-        return string.concat(
-            "<div class='",
-            className,
-            "'>",
-            char,
-            "</div>"
-        );
-    }
-
-    function getRenderedTerrainIdx(uint16 terrainIdx, uint256 len, uint16 seed) private pure returns (uint8) {
-        return uint8((terrainIdx + seed) % len);
-    }
-
-    function getRenderedTerrains(address owner) private view returns (string[576] memory) {
-        Terrain[576] memory terrains = getTerrains(owner);
-
-        uint256 renderSeed = uint256(keccak256(abi.encodePacked(owner)));
-        string[576] memory renderedTerrains;
-        for (uint16 i; i < 576;) {
-            Terrain terrain = terrains[i];
-            renderedTerrains[i] = RENDERED_TERRAIN[terrain][i + renderSeed % (RENDERED_TERRAIN[terrain].length - i)];
-            unchecked {
-                ++i;
-            }
-        }
-
-        return renderedTerrains;
-    }
-
-
     function getImage(address owner) public view returns (string memory) {
         // https://etherscan.deth.net/address/0x49957ca2f1e314c2cf70701816bf6283b7215811#code
         // https://etherscan.deth.net/address/0xA5aFC9fE76a28fB12C60954Ed6e2e5f8ceF64Ff2#code
 
-        Terrain[576] memory terrains = getTerrains(owner);
-
-        uint16 renderSeed = uint16(uint256(keccak256(abi.encodePacked(owner))));
+        bytes memory seed = getSeed(owner);
+        Terrain[576] memory terrains = getTerrains(seed);
         string[576] memory renderedTerrains;
-        for (uint256 i = 0; i < 576;) {
-            Terrain terrain = terrains[i];
-            renderedTerrains[i] = RENDERED_TERRAIN[terrain][(i + renderSeed) % RENDERED_TERRAIN[terrain].length];
+
+        // 1 bit per character, 4 bits per terrain
+        uint256 seedLength = seed.length;
+        for (uint16 i = 0; i < seedLength;) {
+            bool[8] memory bits;
+            for (uint8 j = 0; j < 8;) {
+                bits[j] = (seed[i] & bytes1(uint8(1) << j)) != 0;
+
+                unchecked {
+                    ++j;
+                }
+            }
+
+            for (uint8 j = 0; j < 2;) {
+                Terrain terrain = terrains[(i * 2) + j];
+
+                if (/**terrain == Terrain.GRASSLAND || terrain == Terrain.PLAINS || terrain == Terrain.OCEAN || terrain == Terrain.SWAMP**/ false) {
+                    renderedTerrains[(i * 2) + j] = string.concat(
+                        "<div class='",
+                        TERRAIN_CLASS[terrain],
+                        " t4'>",
+                        TERRAIN_CHARS[terrain][bits[0 + (j * 4)] ? 1 : 0],
+                        TERRAIN_CHARS[terrain][bits[1 + (j * 4)] ? 1 : 0],
+                        TERRAIN_CHARS[terrain][bits[2 + (j * 4)] ? 1 : 0],
+                        TERRAIN_CHARS[terrain][bits[3 + (j * 4)] ? 1 : 0],
+                        "</div>"
+                    );
+                } else {
+                    renderedTerrains[(i * 2) + j] = string.concat(
+                        "<div class='",
+                        TERRAIN_CLASS[terrain],
+                        " t1'>",
+                        TERRAIN_CHARS[terrain][bits[0 + (j * 4)] ? 1 : 0],
+                        "</div>"
+                    );
+                }
+
+                unchecked {
+                    ++j;
+                }
+            }
+
             unchecked {
                 ++i;
             }
