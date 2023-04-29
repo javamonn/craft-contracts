@@ -25,25 +25,25 @@ contract CraftSettlementRenderer is Owned {
     uint8 constant GRID_SIZE = 24;
     string constant SVG_STYLES_GRID = string(
         abi.encodePacked(
+            "@font-face{font-family:Unifont;src:url('https://raw.githubusercontent.com/fontsource/fontsource/main/fonts/other/unifont/files/unifont-latin-400-normal.woff');}",
             ".a{width:576px;height:576px;background-color:black;}",
-            ".b{box-sizing:border-box;width:576px;height:576px;padding:24px;display:grid;grid-template-columns:repeat(24, 1fr);grid-template-rows:repeat(24, 1fr);grid-gap: 0px;justify-content:space-between;font-family:monospace;}",
+            ".b{box-sizing:border-box;width:576px;height:576px;padding:24px;font-family:Unifont;font-size:1rem;display:flex;flex-direction:column;justify-content:center;align-items:center;}",
             "body,svg{overflow-x:hidden;overflow-y:hidden;margin:0;padding:0;}",
-            ".t4{display:inline-grid;grid-template-rows:repeat(2,1fr);grid-template-columns:repeat(2,1fr);font-size:0.6rem;}",
-            ".t1{font-size:1.1rem;line-height:100%;}",
-            "span{aspect-ratio:1/1;display:flex;justify-content:center;align-items:center;}"
+            ".row{height:1rem;}",
+            ".t{width:.6rem;display:inline-block;height:1rem;}",
+            ".i{font-style:italic;}"
         )
     );
     string constant SVG_STYLES_COLOR = string(
         abi.encodePacked(
-            ".fb{font-weight:bold;}",
-            ".g{color:#556832;}",
-            ".p{color:#808000;}",
-            ".h{color:#755A57;}",
-            ".m{color:#C0C0C0;}",
-            ".o{color:#207DF1;}",
-            ".w{color:#556832;}",
-            ".r{color:#9ACD32;}",
-            ".s{color:#2E8B57;}"
+            ".g{color:#6c0;}",
+            ".p{color:#993;}",
+            ".h{color:#630;}",
+            ".m{color:#ccc;}",
+            ".o{color:#00f;}",
+            ".w{color:#060;}",
+            ".r{color:#9c3;}",
+            ".s{color:#3c9;}"
         )
     );
 
@@ -62,31 +62,21 @@ contract CraftSettlementRenderer is Owned {
     string constant SVG_FOOTER = string(abi.encodePacked("</div>", "</div>", "</foreignObject>", "</svg>"));
 
     mapping(Terrain => string[]) TERRAIN_CHARS;
-    mapping(Terrain => string) TERRAIN_CLASS;
 
     constructor() Owned(msg.sender) {
         // Characters for rendered terrains
-        TERRAIN_CHARS[Terrain.GRASSLAND] = [renderSpan(unicode'ⁿ'), renderSpan(".")];
-        TERRAIN_CHARS[Terrain.PLAINS] = [renderSpan(unicode"ⁿ"), renderSpan('"')];
-        TERRAIN_CHARS[Terrain.HILLS] = [renderSpan("n"), renderSpan(unicode"∩")];
-        TERRAIN_CHARS[Terrain.MOUNTAINS] = [renderSpan(unicode"▲"), renderSpan(unicode"⌂")];
-        TERRAIN_CHARS[Terrain.OCEAN] = [renderSpan(unicode"≈"), renderSpan(unicode"≋")];
-        TERRAIN_CHARS[Terrain.WOODS] = [renderSpan(unicode"♠"), renderSpan(unicode"♣")];
-        TERRAIN_CHARS[Terrain.RAINFOREST] = [renderSpan(unicode"♠"), renderSpan(unicode"Γ")];
-        TERRAIN_CHARS[Terrain.SWAMP] = [renderSpan(unicode'"'), renderSpan(unicode"⌠")];
-
-        TERRAIN_CLASS[Terrain.GRASSLAND] = "g fb";
-        TERRAIN_CLASS[Terrain.PLAINS] = "p fb";
-        TERRAIN_CLASS[Terrain.HILLS] = "h fb";
-        TERRAIN_CLASS[Terrain.MOUNTAINS] = "m";
-        TERRAIN_CLASS[Terrain.OCEAN] = "o fb";
-        TERRAIN_CLASS[Terrain.WOODS] = "w fb";
-        TERRAIN_CLASS[Terrain.RAINFOREST] = "r fb";
-        TERRAIN_CLASS[Terrain.SWAMP] = "s";
+        TERRAIN_CHARS[Terrain.GRASSLAND] = [renderChar(unicode'ⱱ', "g t"), renderChar(unicode"ⱳ", "g t")];
+        TERRAIN_CHARS[Terrain.PLAINS] = [renderChar(unicode"ᵥ", "p t"), renderChar(unicode'⩊', "p t")];
+        TERRAIN_CHARS[Terrain.HILLS] = [renderChar(unicode"⌒", "h t"), renderChar(unicode"∩", "h t")];
+        TERRAIN_CHARS[Terrain.MOUNTAINS] = [renderChar(unicode"⋀", "m t"), renderChar(unicode"∆", "m t")];
+        TERRAIN_CHARS[Terrain.OCEAN] = [renderChar(unicode"≈", "o t"), renderChar(unicode"≋", "o t")];
+        TERRAIN_CHARS[Terrain.WOODS] = [renderChar(unicode"ᛉ", "w t"), renderChar(unicode"↟", "w t")];
+        TERRAIN_CHARS[Terrain.RAINFOREST] = [renderChar(unicode"ᛉ", "r t"), renderChar(unicode"↟", "r t")];
+        TERRAIN_CHARS[Terrain.SWAMP] = [renderChar(unicode'„', "s t"), renderChar(unicode"⩫", "s t")];
     }
 
-    function renderSpan(string memory char) internal pure returns (string memory) {
-        return string.concat("<span>", char, "</span>");
+    function renderChar(string memory char, string memory className) internal pure returns (string memory) {
+        return string.concat("<div class='", className, "'>", char, "</div>");
     }
 
     function getSeed(address owner) internal pure returns (bytes memory) {
@@ -249,9 +239,6 @@ contract CraftSettlementRenderer is Owned {
     }
 
     function getImage(address owner) public view returns (string memory) {
-        // https://etherscan.deth.net/address/0x49957ca2f1e314c2cf70701816bf6283b7215811#code
-        // https://etherscan.deth.net/address/0xA5aFC9fE76a28fB12C60954Ed6e2e5f8ceF64Ff2#code
-
         bytes memory seed = getSeed(owner);
         Terrain[576] memory terrains = getTerrains(seed);
         string[576] memory renderedTerrains;
@@ -270,27 +257,7 @@ contract CraftSettlementRenderer is Owned {
 
             for (uint8 j = 0; j < 2;) {
                 Terrain terrain = terrains[(i * 2) + j];
-
-                if (/**terrain == Terrain.GRASSLAND || terrain == Terrain.PLAINS || terrain == Terrain.OCEAN || terrain == Terrain.SWAMP**/ false) {
-                    renderedTerrains[(i * 2) + j] = string.concat(
-                        "<div class='",
-                        TERRAIN_CLASS[terrain],
-                        " t4'>",
-                        TERRAIN_CHARS[terrain][bits[0 + (j * 4)] ? 1 : 0],
-                        TERRAIN_CHARS[terrain][bits[1 + (j * 4)] ? 1 : 0],
-                        TERRAIN_CHARS[terrain][bits[2 + (j * 4)] ? 1 : 0],
-                        TERRAIN_CHARS[terrain][bits[3 + (j * 4)] ? 1 : 0],
-                        "</div>"
-                    );
-                } else {
-                    renderedTerrains[(i * 2) + j] = string.concat(
-                        "<div class='",
-                        TERRAIN_CLASS[terrain],
-                        " t1'>",
-                        TERRAIN_CHARS[terrain][bits[0 + (j * 4)] ? 1 : 0],
-                        "</div>"
-                    );
-                }
+                renderedTerrains[(i * 2) + j] = TERRAIN_CHARS[terrain][bits[0 + (j * 4)] ? 1 : 0];
 
                 unchecked {
                     ++j;
@@ -303,18 +270,46 @@ contract CraftSettlementRenderer is Owned {
         }
 
         string memory output = SVG_HEADER;
-        for (uint16 i = 0; i < 72;) {
-            output = string.concat(
-                output,
-                renderedTerrains[i * 8],
-                renderedTerrains[i * 8 + 1],
-                renderedTerrains[i * 8 + 2],
-                renderedTerrains[i * 8 + 3],
-                renderedTerrains[i * 8 + 4],
-                renderedTerrains[i * 8 + 5],
-                renderedTerrains[i * 8 + 6],
-                renderedTerrains[i * 8 + 7]
-            );
+        for (uint16 i = 0; i < 24;) {
+            for (uint16 j = 0; j < 4;) {
+                if (j == 0) {
+                    output = string.concat(
+                        output,
+                        "<div class='row'>",
+                        renderedTerrains[i * 24 + j * 6],
+                        renderedTerrains[i * 24 + j * 6 + 1],
+                        renderedTerrains[i * 24 + j * 6 + 2],
+                        renderedTerrains[i * 24 + j * 6 + 3],
+                        renderedTerrains[i * 24 + j * 6 + 4],
+                        renderedTerrains[i * 24 + j * 6 + 5]
+                    );
+                } else if (j == 3) {
+                    output = string.concat(
+                        output,
+                        renderedTerrains[i * 24 + j * 6],
+                        renderedTerrains[i * 24 + j * 6 + 1],
+                        renderedTerrains[i * 24 + j * 6 + 2],
+                        renderedTerrains[i * 24 + j * 6 + 3],
+                        renderedTerrains[i * 24 + j * 6 + 4],
+                        renderedTerrains[i * 24 + j * 6 + 5],
+                        "</div>"
+                    );
+                } else {
+                    output = string.concat(
+                        output,
+                        renderedTerrains[i * 24 + j * 6],
+                        renderedTerrains[i * 24 + j * 6 + 1],
+                        renderedTerrains[i * 24 + j * 6 + 2],
+                        renderedTerrains[i * 24 + j * 6 + 3],
+                        renderedTerrains[i * 24 + j * 6 + 4],
+                        renderedTerrains[i * 24 + j * 6 + 5]
+                    );
+                }
+
+                unchecked {
+                    ++j;
+                }
+            }
 
             unchecked {
                 ++i;
