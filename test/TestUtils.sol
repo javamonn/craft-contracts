@@ -34,19 +34,6 @@ contract CraftSettlementRendererMock {
 }
 
 library Utils {
-    function logTerrain(CraftSettlementRenderer.Terrain[576] memory terrain, uint8 rowSize) public {
-        string memory output = "";
-        for (uint256 i = 0; i < terrain.length / rowSize; i++) {
-            for (uint256 j = 0; j < rowSize; j++) {
-                output = string(abi.encodePacked(output, Strings.toString(uint256(terrain[(i * rowSize) + j]))));
-            }
-            output = string(abi.encodePacked(output, "\n"));
-        }
-
-        console.log(output);
-        require(false, "logTerrain");
-    }
-
     function makeSignature(Vm vm, uint248 pkey, bytes32 digest) public returns (bytes memory) {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pkey, ECDSA.toEthSignedMessageHash(digest));
 
