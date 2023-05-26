@@ -7,8 +7,6 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-import "../src/CraftSettlementRenderer.sol";
-
 contract ERC721TokenReceiverMock is ERC721TokenReceiver {
     uint256 public lastTokenId;
 
@@ -20,16 +18,6 @@ contract ERC721TokenReceiverMock is ERC721TokenReceiver {
     {
         lastTokenId = tokenId;
         return this.onERC721Received.selector;
-    }
-}
-
-contract CraftSettlementRendererMock {
-    using Strings for uint256;
-
-    function tokenURI(uint256 tokenId) public view returns (string memory) {
-        bytes memory dataURI = abi.encodePacked("{", '"tokenId": "', tokenId.toString(), '"', "}");
-
-        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(dataURI)));
     }
 }
 
