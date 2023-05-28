@@ -6,6 +6,17 @@ import "solmate/tokens/ERC721.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+import "../src/ICraftSettlementRenderer.sol";
+
+contract CraftSettlementMockRenderer is ICraftSettlementRenderer {
+    using Strings for uint256;
+    using Strings for address;
+
+    function tokenURI(address settlement, uint256 tokenId) external view returns (string memory) {
+        return string.concat('{"settlement":"', settlement.toHexString(), '","tokenId":', tokenId.toString(), "}");
+    }
+}
 
 contract ERC721TokenReceiverMock is ERC721TokenReceiver {
     uint256 public lastTokenId;
