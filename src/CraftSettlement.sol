@@ -7,9 +7,10 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "./ICraftSettlementRenderer.sol";
+import "./ICraftSettlement.sol";
 import "./CraftSettlementData.sol";
 
-contract CraftSettlement is ERC721, Auth {
+contract CraftSettlement is ERC721, Auth, ICraftSettlement {
     using Counters for Counters.Counter;
 
     error InvalidSignature();

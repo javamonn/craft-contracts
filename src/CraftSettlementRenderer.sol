@@ -123,7 +123,7 @@ contract CraftSettlementRenderer is Owned, ICraftSettlementRenderer {
         return svg;
     }
 
-    function render(ICraftSettlement settlement, CraftSettlementData.Metadata memory metadata) public view returns (string memory) {
+    function render(ICraftSettlement settlement, CraftSettlementData.Metadata memory metadata) public pure returns (string memory) {
 
         // html encoded terrains for token
         string[240] memory renderedTerrains;
