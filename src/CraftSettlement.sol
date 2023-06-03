@@ -2,19 +2,21 @@
 pragma solidity ^0.8.13;
 
 import "solmate/tokens/ERC721.sol";
-import "solmate/auth/Owned.sol";
+import "solmate/auth/Auth.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "./ICraftSettlementRenderer.sol";
 import "./CraftSettlementData.sol";
 
-contract CraftSettlement is ERC721, Owned {
+contract CraftSettlement is ERC721, Auth {
     using Counters for Counters.Counter;
 
     error InvalidSignature();
     error HasSettled();
     error Soulbound();
+
+    event SetMetadataTerrain(uint256 indexed tokenId, uint8 terrainIndexesIdx, uint16 newTerrainIndex);
 
     // Dungeon Master used to authenticate mints
     address public dungeonMaster;
@@ -34,12 +36,12 @@ contract CraftSettlement is ERC721, Owned {
 
     uint8 constant SETTLEABLE_TERRAIN_MAX_INDEX = 7;
 
-    constructor(address _dungeonMaster, address _renderer)
-        Owned(msg.sender)
-        ERC721("craft.game settlement", "CRAFT_SETTLEMENT")
+    constructor(address _dungeonMaster, ICraftSettlementRenderer _renderer, Authority _authority)
+        ERC721("craft.game settlement", "SETTLEMENT")
+        Auth(msg.sender, _authority)
     {
         dungeonMaster = _dungeonMaster;
-        renderer = ICraftSettlementRenderer(_renderer);
+        renderer = _renderer;
 
         terrains.push(CraftSettlementData.Terrain("Grasslands", new string[](0), ".g{color:#6c0;}"));
         terrains[0].renderedCharacters.push(renderChar(unicode"ⱱ", "g t"));
@@ -96,7 +98,7 @@ contract CraftSettlement is ERC721, Owned {
         return string.concat("<div class='", className, "'>", char, "</div>");
     }
 
-    function generateTerrains(address settler, uint256 tokenId) private {
+    function generateTerrains(address settler) public pure returns (uint16[240] memory) {
         bytes memory seed = CraftSettlementData.getSeedForSettler(settler);
 
         // Map of possible terrains. Derived from seed, may be biased - certain
@@ -222,22 +224,41 @@ contract CraftSettlement is ERC721, Owned {
             }
         }
 
-        metadataByTokenId[tokenId] = CraftSettlementData.Metadata(terrainIndexes, settler);
+        return terrainIndexes;
     }
 
     function settle(bytes calldata sig) external hasNotSettled(msg.sender) hasSignature(msg.sender, sig) {
         uint256 tokenId = nextTokenId();
-        generateTerrains(msg.sender, tokenId);
+        uint16[240] memory terrainIndexes = generateTerrains(msg.sender);
+        metadataByTokenId[tokenId] = CraftSettlementData.Metadata(terrainIndexes, msg.sender);
         _safeMint(msg.sender, tokenId);
     }
 
-
-    function setRenderer(address _renderer) external onlyOwner {
+    function setRenderer(address _renderer) external requiresAuth {
         renderer = ICraftSettlementRenderer(_renderer);
     }
 
-    function setDungeonMaster(address _dungeonMaster) external onlyOwner {
+    function setDungeonMaster(address _dungeonMaster) external requiresAuth {
         dungeonMaster = _dungeonMaster;
+    }
+
+    function setTerrain(uint16 idx, CraftSettlementData.Terrain memory terrain) external requiresAuth {
+        if (idx < terrains.length) {
+            terrains[idx] = terrain;
+        } else {
+            terrains.push(terrain);
+        }
+    }
+
+    function setMetadataTerrainIndex(uint256 tokenId, uint8 terrainIndexesIdx, uint16 newTerrainIndex)
+        external
+        requiresAuth
+    {
+        require(terrainIndexesIdx < 240, "terrainIndexesIdx is out of bounds.");
+        require(newTerrainIndex < terrains.length, "newTerrainIndex is out of bounds");
+
+        metadataByTokenId[tokenId].terrainIndexes[terrainIndexesIdx] = newTerrainIndex;
+        emit SetMetadataTerrain(tokenId, terrainIndexesIdx, newTerrainIndex);
     }
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {

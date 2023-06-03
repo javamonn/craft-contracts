@@ -123,8 +123,7 @@ contract CraftSettlementRenderer is Owned, ICraftSettlementRenderer {
         return svg;
     }
 
-    function tokenURI(address _settlement, uint256 tokenId) external view returns (string memory) {
-        ICraftSettlement settlement = ICraftSettlement(_settlement);
+    function render(ICraftSettlement settlement, CraftSettlementData.Metadata memory metadata) public view returns (string memory) {
 
         // html encoded terrains for token
         string[240] memory renderedTerrains;
@@ -132,8 +131,6 @@ contract CraftSettlementRenderer is Owned, ICraftSettlementRenderer {
         // terrain idx => occurance count within rendered terrains
         uint16[] memory terrainIdxCount = new uint16[](settlement.getTerrainsLength());
 
-        // derive renderedTerrains and terrainIdxCount from metadata and seed
-        CraftSettlementData.Metadata memory metadata = settlement.getMetadataByTokenId(tokenId);
         bytes memory seed = CraftSettlementData.getSeedForSettler(metadata.settler);
         for (uint16 i = 0; i < 120;) {
             bytes1 b = seed[i];
@@ -163,5 +160,13 @@ contract CraftSettlementRenderer is Owned, ICraftSettlementRenderer {
         bytes memory dataURI = abi.encodePacked('{"image":"', image, '","attributes":', attributes, "}");
 
         return string(abi.encodePacked("data:application/json;base64,", Base64.encode(dataURI)));
+
+    }
+
+    function tokenURI(address _settlement, uint256 tokenId) external view returns (string memory) {
+        ICraftSettlement settlement = ICraftSettlement(_settlement);
+        CraftSettlementData.Metadata memory metadata = settlement.getMetadataByTokenId(tokenId);
+
+        return render(settlement, metadata);
     }
 }

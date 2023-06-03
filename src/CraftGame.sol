@@ -30,7 +30,6 @@ contract CraftGame is ERC721, Owned {
         uint256 tokenId = nextTokenId();
         _resourceIdByTokenId[tokenId] = resourceId;
 
-        // Counter overflow is incredibly unrealistic.
         unchecked {
             _balanceOf[to]++;
         }

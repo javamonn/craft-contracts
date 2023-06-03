@@ -2,18 +2,27 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
 
 import "./TestUtils.sol";
 import "../src/CraftSettlement.sol";
+import "../src/CraftAuthority.sol";
 
 contract CraftSettlementTest is Test {
     event Transfer(address indexed from, address indexed to, uint256 indexed id);
 
+    CraftAuthority authority;
+    CraftSettlementMockRenderer renderer;
+
+    function setUp() public {
+        authority = new CraftAuthority();
+        renderer = new CraftSettlementMockRenderer();
+    }
+
     function test_constructor(address dungeonMaster, address renderer) public {
         CraftSettlement settlement = new CraftSettlement(
             dungeonMaster,
-            renderer
+            ICraftSettlementRenderer(renderer),
+            authority
         );
 
         assertEq(settlement.dungeonMaster(), dungeonMaster);
@@ -24,14 +33,15 @@ contract CraftSettlementTest is Test {
     function test_setRenderer(address renderer, address newRenderer, address dungeonMaster) public {
         CraftSettlement settlement = new CraftSettlement(
             dungeonMaster,
-            renderer
+            ICraftSettlementRenderer(renderer),
+            authority
         );
         settlement.setRenderer(newRenderer);
 
         assertEq(address(settlement.renderer()), newRenderer);
     }
 
-    function testFail_SetRendererWhenNotOwner(
+    function testFail_setRenderer_whenNotOwnerOrAuthorized(
         address renderer,
         address newRenderer,
         address dungeonMaster,
@@ -39,49 +49,57 @@ contract CraftSettlementTest is Test {
     ) public {
         vm.assume(notOwner != address(0));
         vm.assume(renderer != address(0));
+        vm.assume(notOwner != address(this));
 
         CraftSettlement settlement = new CraftSettlement(
             dungeonMaster,
-            renderer
+            ICraftSettlementRenderer(renderer),
+            authority
         );
 
         vm.prank(notOwner);
         settlement.setRenderer(newRenderer);
     }
 
-    function test_SetDungeonMaster(address dungeonMaster, address newDungeonMaster) public {
-        CraftSettlementMockRenderer renderer = new CraftSettlementMockRenderer();
+    function test_setDungeonMaster(address dungeonMaster, address newDungeonMaster) public {
         CraftSettlement settlement = new CraftSettlement(
             dungeonMaster,
-            address(renderer)
+            renderer,
+            authority
         );
         settlement.setDungeonMaster(newDungeonMaster);
 
         assertEq(settlement.dungeonMaster(), newDungeonMaster);
     }
 
-    function testFail_SetDungeonMasterWhenNotOwner(address dungeonMaster, address newDungeonMaster, address notOwner)
-        public
-    {
+    function testFail_setDungeonMaster_whenNotOwnerOrAuthorized(
+        address dungeonMaster,
+        address newDungeonMaster,
+        address notOwner
+    ) public {
         vm.assume(notOwner != address(0));
         vm.assume(dungeonMaster != address(0));
+        vm.assume(notOwner != address(this));
 
-        CraftSettlementMockRenderer renderer = new CraftSettlementMockRenderer();
         CraftSettlement settlement = new CraftSettlement(
             dungeonMaster,
-            address(renderer)
+            renderer,
+            authority
         );
 
         vm.prank(notOwner);
         settlement.setDungeonMaster(newDungeonMaster);
     }
 
-    function test_Settle(uint248 dungeonMasterPkey) public {
+    function test_settle(uint248 dungeonMasterPkey) public {
         vm.assume(dungeonMasterPkey != 0);
 
         ERC721TokenReceiverMock receiverMock = new ERC721TokenReceiverMock();
-        CraftSettlementMockRenderer renderer = new CraftSettlementMockRenderer();
-        CraftSettlement settlement = new CraftSettlement(vm.addr(dungeonMasterPkey), address(renderer));
+        CraftSettlement settlement = new CraftSettlement(
+            vm.addr(dungeonMasterPkey),
+            renderer,
+            authority
+        );
 
         bytes memory sig = Utils.makeSignature(vm, dungeonMasterPkey, settlement.settleHash(address(receiverMock)));
         vm.expectEmit(true, true, false, false);
@@ -93,7 +111,7 @@ contract CraftSettlementTest is Test {
         assertEq(settlement.ownerOf(receiverMock.lastTokenId()), address(receiverMock));
     }
 
-    function test_SettleRevert_IfInvalidSig(uint248 dungeonMasterPkey, uint248 spoofedDungeonMasterPkey, address sender)
+    function test_settleRevert_ifInvalidSig(uint248 dungeonMasterPkey, uint248 spoofedDungeonMasterPkey, address sender)
         public
     {
         vm.assume(dungeonMasterPkey != 0);
@@ -101,8 +119,11 @@ contract CraftSettlementTest is Test {
         vm.assume(spoofedDungeonMasterPkey != dungeonMasterPkey);
         vm.assume(sender != address(0));
 
-        CraftSettlementMockRenderer renderer = new CraftSettlementMockRenderer();
-        CraftSettlement settlement = new CraftSettlement(vm.addr(dungeonMasterPkey), address(renderer));
+        CraftSettlement settlement = new CraftSettlement(
+            vm.addr(dungeonMasterPkey),
+            renderer,
+            authority
+        );
         bytes memory sig = Utils.makeSignature(vm, spoofedDungeonMasterPkey, settlement.settleHash(sender));
 
         vm.expectRevert(CraftSettlement.InvalidSignature.selector);
@@ -110,7 +131,7 @@ contract CraftSettlementTest is Test {
         settlement.settle(sig);
     }
 
-    function test_SettleRevert_IfValidSigOfWrongSender(uint248 dungeonMasterPkey, address spoofedSender, address sender)
+    function test_settleRevert_ifValidSigOfWrongSender(uint248 dungeonMasterPkey, address spoofedSender, address sender)
         public
     {
         vm.assume(dungeonMasterPkey != 0);
@@ -118,8 +139,11 @@ contract CraftSettlementTest is Test {
         vm.assume(spoofedSender != address(0));
         vm.assume(spoofedSender != sender);
 
-        CraftSettlementMockRenderer renderer = new CraftSettlementMockRenderer();
-        CraftSettlement settlement = new CraftSettlement(vm.addr(dungeonMasterPkey), address(renderer));
+        CraftSettlement settlement = new CraftSettlement(
+            vm.addr(dungeonMasterPkey),
+            renderer,
+            authority
+        );
         bytes memory sig = Utils.makeSignature(vm, dungeonMasterPkey, settlement.settleHash(spoofedSender));
 
         vm.expectRevert(CraftSettlement.InvalidSignature.selector);
@@ -127,12 +151,15 @@ contract CraftSettlementTest is Test {
         settlement.settle(sig);
     }
 
-    function test_SettleRevert_IfAlreadySettled(uint248 dungeonMasterPkey) public {
+    function test_settleRevert_ifAlreadySettled(uint248 dungeonMasterPkey) public {
         vm.assume(dungeonMasterPkey != 0);
 
         ERC721TokenReceiverMock receiverMock = new ERC721TokenReceiverMock();
-        CraftSettlementMockRenderer renderer = new CraftSettlementMockRenderer();
-        CraftSettlement settlement = new CraftSettlement(vm.addr(dungeonMasterPkey), address(renderer));
+        CraftSettlement settlement = new CraftSettlement(
+            vm.addr(dungeonMasterPkey),
+            renderer,
+            authority
+        );
 
         bytes memory sig = Utils.makeSignature(vm, dungeonMasterPkey, settlement.settleHash(address(receiverMock)));
         vm.expectEmit(true, true, false, false);
@@ -145,26 +172,26 @@ contract CraftSettlementTest is Test {
         vm.stopPrank();
     }
 
-    function test_ApproveRevert(uint248 dungeonMasterPkey, address operator) public {
+    function test_approveRevert(uint248 dungeonMasterPkey, address operator) public {
         vm.assume(dungeonMasterPkey != 0);
 
         ERC721TokenReceiverMock receiverMock = new ERC721TokenReceiverMock();
-        CraftSettlementMockRenderer renderer = new CraftSettlementMockRenderer();
-        CraftSettlement settlement = new CraftSettlement(vm.addr(dungeonMasterPkey), address(renderer));
+        CraftSettlement settlement = new CraftSettlement(
+            vm.addr(dungeonMasterPkey),
+            renderer,
+            authority
+        );
         bytes memory sig = Utils.makeSignature(vm, dungeonMasterPkey, settlement.settleHash(address(receiverMock)));
         vm.prank(address(receiverMock));
-        console.log("settling");
         settlement.settle(sig);
 
         uint256 lastTokenId = receiverMock.lastTokenId();
-        console.log("settled");
-        console.log(lastTokenId);
         vm.expectRevert(CraftSettlement.Soulbound.selector);
         vm.prank(address(receiverMock));
         settlement.approve(operator, lastTokenId);
     }
 
-    function test_SetApprovalForAllRevert(uint248 dungeonMasterPkey, address operator, address sender, bool approved)
+    function test_setApprovalForAllRevert(uint248 dungeonMasterPkey, address operator, address sender, bool approved)
         public
     {
         vm.assume(dungeonMasterPkey != 0);
@@ -172,9 +199,13 @@ contract CraftSettlementTest is Test {
         vm.assume(operator != address(0));
         assumeNoPrecompiles(operator);
         assumeNoPrecompiles(sender);
+        assumePayable(sender);
 
-        CraftSettlementMockRenderer renderer = new CraftSettlementMockRenderer();
-        CraftSettlement settlement = new CraftSettlement(vm.addr(dungeonMasterPkey), address(renderer));
+        CraftSettlement settlement = new CraftSettlement(
+            vm.addr(dungeonMasterPkey),
+            renderer,
+            authority
+        );
         vm.assume(sender != address(settlement));
 
         bytes memory sig = Utils.makeSignature(vm, dungeonMasterPkey, settlement.settleHash(sender));
@@ -186,13 +217,16 @@ contract CraftSettlementTest is Test {
         settlement.setApprovalForAll(operator, approved);
     }
 
-    function test_TransferFromRevert(uint248 dungeonMasterPkey, address to) public {
+    function test_transferFromRevert(uint248 dungeonMasterPkey, address to) public {
         vm.assume(dungeonMasterPkey != 0);
         vm.assume(to != address(0));
 
         ERC721TokenReceiverMock receiverMock = new ERC721TokenReceiverMock();
-        CraftSettlementMockRenderer renderer = new CraftSettlementMockRenderer();
-        CraftSettlement settlement = new CraftSettlement(vm.addr(dungeonMasterPkey), address(renderer));
+        CraftSettlement settlement = new CraftSettlement(
+            vm.addr(dungeonMasterPkey),
+            renderer,
+            authority
+        );
         bytes memory sig = Utils.makeSignature(vm, dungeonMasterPkey, settlement.settleHash(address(receiverMock)));
         vm.prank(address(receiverMock));
         settlement.settle(sig);
@@ -206,10 +240,15 @@ contract CraftSettlementTest is Test {
     function test_tokenURI(uint248 dungeonMasterPkey, address to) public {
         vm.assume(dungeonMasterPkey != 0);
         vm.assume(to != address(0));
-        assumeNoPrecompiles(to);
+        assumePayable(to);
 
-        CraftSettlementMockRenderer renderer = new CraftSettlementMockRenderer();
-        CraftSettlement settlement = new CraftSettlement(vm.addr(dungeonMasterPkey), address(renderer));
+        CraftSettlement settlement = new CraftSettlement(
+            vm.addr(dungeonMasterPkey),
+            renderer,
+            authority
+        );
+        vm.assume(to != address(settlement));
+
         bytes memory sig = Utils.makeSignature(vm, dungeonMasterPkey, settlement.settleHash(to));
 
         vm.prank(to);
@@ -222,9 +261,15 @@ contract CraftSettlementTest is Test {
         vm.assume(dungeonMasterPkey != 0);
         vm.assume(to != address(0));
         assumeNoPrecompiles(to);
+        assumePayable(to);
 
-        CraftSettlementMockRenderer renderer = new CraftSettlementMockRenderer();
-        CraftSettlement settlement = new CraftSettlement(vm.addr(dungeonMasterPkey), address(renderer));
+        CraftSettlement settlement = new CraftSettlement(
+            vm.addr(dungeonMasterPkey),
+            renderer,
+            authority
+        );
+        vm.assume(to != address(settlement));
+
         bytes memory sig = Utils.makeSignature(vm, dungeonMasterPkey, settlement.settleHash(to));
 
         vm.prank(to);
@@ -236,8 +281,11 @@ contract CraftSettlementTest is Test {
     function test_getTerrainsLength(uint248 dungeonMasterPkey) public {
         vm.assume(dungeonMasterPkey != 0);
 
-        CraftSettlementMockRenderer renderer = new CraftSettlementMockRenderer();
-        CraftSettlement settlement = new CraftSettlement(vm.addr(dungeonMasterPkey), address(renderer));
+        CraftSettlement settlement = new CraftSettlement(
+            vm.addr(dungeonMasterPkey),
+            renderer,
+            authority
+        );
 
         assertEq(settlement.getTerrainsLength(), 8);
     }
@@ -245,8 +293,127 @@ contract CraftSettlementTest is Test {
     function test_getTerrain(uint248 dungeonMasterPkey) public {
         vm.assume(dungeonMasterPkey != 0);
 
-        CraftSettlementMockRenderer renderer = new CraftSettlementMockRenderer();
-        CraftSettlement settlement = new CraftSettlement(vm.addr(dungeonMasterPkey), address(renderer));
+        CraftSettlement settlement = new CraftSettlement(
+            vm.addr(dungeonMasterPkey),
+            renderer,
+            authority
+        );
         assertEq(settlement.getTerrain(0).name, "Grasslands");
+    }
+
+    function test_setMetadataTerrainIndex(uint248 dungeonMasterPkey, address to, uint8 terrainIndex) public {
+        vm.assume(dungeonMasterPkey != 0);
+        vm.assume(to != address(0));
+        vm.assume(terrainIndex < 240);
+        assumeNoPrecompiles(to);
+        assumePayable(to);
+
+        CraftSettlement settlement = new CraftSettlement(
+            vm.addr(dungeonMasterPkey),
+            renderer,
+            authority
+        );
+        vm.assume(to != address(settlement));
+
+        bytes memory sig = Utils.makeSignature(vm, dungeonMasterPkey, settlement.settleHash(to));
+
+        vm.prank(to);
+        settlement.settle(sig);
+
+        uint16 currentTerrainIndex = settlement.getMetadataByTokenId(1).terrainIndexes[terrainIndex];
+        uint16 newTerrainIndex = (currentTerrainIndex + 1) % 8;
+        settlement.setMetadataTerrainIndex(1, terrainIndex, newTerrainIndex);
+
+        assertEq(settlement.getMetadataByTokenId(1).terrainIndexes[terrainIndex], newTerrainIndex);
+    }
+
+    function testFail_setMetadataTerrainIndex_whenNotOwnerOrAuthorized(
+        uint248 dungeonMasterPkey,
+        address to,
+        uint8 terrainIndex
+    ) public {
+        vm.assume(dungeonMasterPkey != 0);
+        vm.assume(to != address(0));
+        vm.assume(terrainIndex < 240);
+        vm.assume(to != address(this));
+        assumeNoPrecompiles(to);
+        assumePayable(to);
+
+        CraftSettlement settlement = new CraftSettlement(
+            vm.addr(dungeonMasterPkey),
+            renderer,
+            authority
+        );
+        vm.assume(to != address(settlement));
+
+        bytes memory sig = Utils.makeSignature(vm, dungeonMasterPkey, settlement.settleHash(to));
+
+        vm.prank(to);
+        settlement.settle(sig);
+
+        uint16 currentTerrainIndex = settlement.getMetadataByTokenId(1).terrainIndexes[terrainIndex];
+        uint16 newTerrainIndex = (currentTerrainIndex + 1) % 8;
+
+        vm.prank(to);
+        settlement.setMetadataTerrainIndex(1, terrainIndex, newTerrainIndex);
+    }
+
+    function test_setTerrain(uint248 dungeonMasterPkey) public {
+        vm.assume(dungeonMasterPkey != 0);
+
+        CraftSettlement settlement = new CraftSettlement(
+            vm.addr(dungeonMasterPkey),
+            renderer,
+            authority
+        );
+        CraftSettlementData.Terrain memory terrain = CraftSettlementData.Terrain("Desert", new string[](1), "foo");
+        terrain.renderedCharacters[0] = "bar";
+
+        // Push terrain
+        settlement.setTerrain(8, terrain);
+        assertEq(settlement.getTerrain(8).name, terrain.name);
+        assertEq(settlement.getTerrain(8).renderedCharacters[0], terrain.renderedCharacters[0]);
+
+        // Overwrite existing terrain
+        settlement.setTerrain(0, terrain);
+        assertEq(settlement.getTerrain(0).name, terrain.name);
+        assertEq(settlement.getTerrain(0).renderedCharacters[0], terrain.renderedCharacters[0]);
+    }
+
+    function test_setTerrain_whenAuthorized(uint248 dungeonMasterPkey, address sender) public {
+        vm.assume(dungeonMasterPkey != 0);
+        vm.assume(sender != address(0));
+
+        CraftSettlement settlement = new CraftSettlement(
+            vm.addr(dungeonMasterPkey),
+            renderer,
+            authority
+        );
+        CraftSettlementData.Terrain memory terrain = CraftSettlementData.Terrain("Desert", new string[](1), "foo");
+        terrain.renderedCharacters[0] = "bar";
+        authority.setRoleCapability(1, address(settlement), CraftSettlement.setTerrain.selector, true);
+        authority.setUserRole(sender, 1, true);
+
+        vm.prank(sender);
+        settlement.setTerrain(8, terrain);
+        assertEq(settlement.getTerrain(8).name, terrain.name);
+        assertEq(settlement.getTerrain(8).renderedCharacters[0], terrain.renderedCharacters[0]);
+    }
+
+    function testFail_setTerrain_whenNotOwnerOrAuthorized(uint248 dungeonMasterPkey, address sender) public {
+        vm.assume(dungeonMasterPkey != 0);
+        vm.assume(sender != vm.addr(dungeonMasterPkey));
+        vm.assume(sender != address(this));
+
+        CraftSettlement settlement = new CraftSettlement(
+            vm.addr(dungeonMasterPkey),
+            renderer,
+            authority
+        );
+        CraftSettlementData.Terrain memory terrain = CraftSettlementData.Terrain("Desert", new string[](1), "foo");
+        terrain.renderedCharacters[0] = "bar";
+
+        vm.prank(sender);
+        settlement.setTerrain(8, terrain);
     }
 }
