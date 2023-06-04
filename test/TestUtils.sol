@@ -13,8 +13,12 @@ contract CraftSettlementMockRenderer is ICraftSettlementRenderer {
     using Strings for uint256;
     using Strings for address;
 
-    function tokenURI(address settlement, uint256 tokenId) external view returns (string memory) {
-        return string.concat('{"settlement":"', settlement.toHexString(), '","tokenId":', tokenId.toString(), "}");
+    function tokenURI(uint256 tokenId) external view returns (string memory) {
+        return string.concat('{"tokenId":', tokenId.toString(), "}");
+    }
+
+    function getTerrainsLength() external view returns (uint256) {
+        return 8;
     }
 }
 
