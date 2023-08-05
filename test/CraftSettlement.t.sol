@@ -90,6 +90,20 @@ contract CraftSettlementTest is Test {
         settlement.setDungeonMaster(newDungeonMaster);
     }
 
+    function test_generateTerrains(address dungeonMaster, address settler) public {
+        vm.assume(dungeonMaster != address(0));
+        vm.assume(settler != address(0));
+
+        CraftSettlement settlement = new CraftSettlement(
+          dungeonMaster,
+          renderer,
+          authority
+        );
+
+        // Should not revert
+        uint16[240] memory terrains = settlement.generateTerrains(settler);
+    }
+
     function test_settle(uint248 dungeonMasterPkey, uint8 settlementIdx) public {
         vm.assume(dungeonMasterPkey != 0);
         vm.assume(settlementIdx < 240);
@@ -110,6 +124,11 @@ contract CraftSettlementTest is Test {
 
         assertEq(settlement.balanceOf(address(receiverMock)), 1);
         assertEq(settlement.ownerOf(receiverMock.lastTokenId()), address(receiverMock));
+        assertEq(settlement.getMetadataByTokenId(receiverMock.lastTokenId()).settlementIdx, settlementIdx);
+        assertEq(
+            settlement.getMetadataByTokenId(receiverMock.lastTokenId()).terrains[settlementIdx],
+            settlement.settlementTerrainIndex()
+        );
     }
 
     function test_settleRevert_ifInvalidSig(uint248 dungeonMasterPkey, uint248 spoofedDungeonMasterPkey, address sender)

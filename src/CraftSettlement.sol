@@ -26,6 +26,7 @@ contract CraftSettlement is ERC721, Auth {
 
     uint8 public constant gridRows = 12;
     uint8 public constant gridCols = 20;
+    uint8 public constant settlementTerrainIndex = 8;
     uint8 internal constant settleableTerrainMaxIndex = 7;
 
     // Dungeon Master used to authenticate mints
@@ -64,7 +65,7 @@ contract CraftSettlement is ERC721, Auth {
         _;
     }
 
-    function generateTerrains(address settler, uint8 settlementIdx) public pure returns (uint16[240] memory) {
+    function generateTerrains(address settler) public pure returns (uint16[240] memory) {
         bytes memory seed = getSeedForSettler(settler);
 
         // Map of possible terrains. Derived from seed, may be biased - certain
@@ -178,9 +179,6 @@ contract CraftSettlement is ERC721, Auth {
             }
         }
 
-        // The settlement terrain is index 8
-        terrainIndexes[settlementIdx] = 8;
-
         return terrainIndexes;
     }
 
@@ -194,7 +192,9 @@ contract CraftSettlement is ERC721, Auth {
         }
 
         uint256 tokenId = nextTokenId();
-        uint16[240] memory terrains = generateTerrains(msg.sender, settlementIdx);
+        uint16[240] memory terrains = generateTerrains(msg.sender);
+        terrains[settlementIdx] = settlementTerrainIndex;
+
         metadataByTokenId[tokenId] = Metadata({terrains: terrains, settler: msg.sender, settlementIdx: settlementIdx});
         _safeMint(msg.sender, tokenId);
     }

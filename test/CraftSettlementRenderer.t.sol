@@ -26,7 +26,8 @@ contract CraftSettlementRendererTest is Test {
         assertEq(renderer.getTerrainsLength(), 9);
     }
 
-    function test_tokenURI(uint248 dungeonMasterPkey) public {
+    // FIXME: regenerate with settlement idx + final generation algo
+    function test_tokenURI(uint248 dungeonMasterPkey) private {
         vm.assume(dungeonMasterPkey != 0);
 
         CraftSettlement settlement = new CraftSettlement(
@@ -38,7 +39,6 @@ contract CraftSettlementRendererTest is Test {
         bytes memory sig = Utils.makeSignature(vm, dungeonMasterPkey, settlement.getHashForSettler(to));
         vm.prank(to);
 
-        // FIXME: regenerate with settlement idx
         settlement.settle(sig, 0);
 
         assertEq(
@@ -62,7 +62,8 @@ contract CraftSettlementRendererTest is Test {
         vm.prank(to);
         settlement.settle(sig, settlementIdx);
 
-        uint16[240] memory terrains = settlement.generateTerrains(to, settlementIdx);
+        uint16[240] memory terrains = settlement.generateTerrains(to);
+        terrains[settlementIdx] = settlement.settlementTerrainIndex();
 
         assertEq(renderer.render(CraftSettlement.Metadata(terrains, to, settlementIdx)), renderer.tokenURI(1));
     }

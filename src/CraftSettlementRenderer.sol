@@ -23,7 +23,7 @@ contract CraftSettlementRenderer is Auth, ICraftSettlementRenderer {
             ".a{width:208px;height:208px;background-color:black;box-sizing:border-box;font-size:16px;font-family:Unifont;display:flex;flex-direction:column;justify-content:center;align-items:center;}",
             "svg{overflow-x:hidden;overflow-y:hidden;margin:0;padding:0;}",
             ".row{height:1rem;}",
-            ".t{width:.6rem;display:inline-block;height:1rem;}",
+            ".t{width:.6rem;display:inline-block;height:1rem;text-align:center;}",
             ".i{font-style:italic;}"
         )
     );
