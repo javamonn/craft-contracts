@@ -13,4 +13,4 @@ Craft is currently in the early stages of development. The game is not yet fully
 - **XP**: ERC20 token acquired from interacting with the Craft world. $XP is used to develop **technology**.
 - **Epoch**: A window of time (currently 12 hours) during which all players may submit their actions for the in-game turn. In each turn, a player may perform up to one resource action (e.g. "forage", "hunt", "mine") and one craft or develop action (e.g. "craft stone axe", "develop weaving").
 
-![Craft Map](./etc/example-map.png =360x360)
+<img src="./etc/example-map.png" width="360" height="360" />
